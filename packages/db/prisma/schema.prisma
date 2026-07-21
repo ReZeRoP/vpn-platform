@@ -1,0 +1,292 @@
+// VPN Config Store + Real-time Chat — data model
+// Postgres + Prisma. All timestamps stored UTC; formatted to Jalali at render layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+//  USERS & AUTH
+// ============================================================
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  phone        String?  @unique
+  email        String?  @unique
+  passwordHash String
+  role         Role     @default(USER)
+  avatarUrl    String?
+  isBanned     Boolean  @default(false)
+  lastSeenAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  // referral: who invited this user
+  referredById String?
+  referredBy   User?    @relation("Referrals", fields: [referredById], references: [id])
+  referrals    User[]   @relation("Referrals")
+
+  orders       Order[]
+  messages     Message[]
+  participants ConversationParticipant[]
+  wallet       Wallet?
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+
+  @@index([referredById])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ============================================================
+//  STORE: PLANS & CONFIG WAREHOUSE
+// ============================================================
+model Plan {
+  id                String   @id @default(cuid())
+  title             String
+  description       String?
+  durationDays      Int
+  dataLimitGb       Int?      // null = unlimited
+  price             Decimal  @db.Decimal(12, 2)
+  isActive          Boolean  @default(true)
+  lowStockThreshold Int      @default(5)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  configs ConfigInventory[]
+  orders  Order[]
+}
+
+model ConfigInventory {
+  id           String       @id @default(cuid())
+  planId       String
+  plan         Plan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  configString String
+  configType   ConfigType
+  status       ConfigStatus @default(AVAILABLE)
+  orderId      String?      @unique
+  order        Order?       @relation(fields: [orderId], references: [id])
+  soldAt       DateTime?
+  createdAt    DateTime     @default(now())
+
+  // Critical index: powers the atomic "grab one AVAILABLE config" pull.
+  @@index([planId, status])
+}
+
+enum ConfigType {
+  VLESS
+  VMESS
+  WIREGUARD
+  TROJAN
+  SHADOWSOCKS
+  SUBSCRIPTION
+}
+
+enum ConfigStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+// ============================================================
+//  STORE: ORDERS
+// ============================================================
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  planId        String
+  plan          Plan        @relation(fields: [planId], references: [id])
+  status        OrderStatus @default(PENDING)
+  amount        Decimal     @db.Decimal(12, 2)
+  discount      Decimal     @db.Decimal(12, 2) @default(0)
+  paymentMethod PaymentMethod @default(RECEIPT)
+  receiptUrl    String?
+  transactionId String?
+  couponId      String?
+  coupon        Coupon?     @relation(fields: [couponId], references: [id])
+  adminNote     String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  fulfilledConfig ConfigInventory?
+  createdAt     DateTime    @default(now())
+  expiresAt     DateTime?   // = approval time + plan.durationDays
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  RECEIPT
+  WALLET
+}
+
+// ============================================================
+//  WALLET & CREDIT
+// ============================================================
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Decimal  @db.Decimal(12, 2) @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id         String        @id @default(cuid())
+  walletId   String
+  wallet     Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type       WalletTxnType
+  amount     Decimal       @db.Decimal(12, 2) // signed: + credit, - debit
+  balanceAfter Decimal     @db.Decimal(12, 2)
+  reference  String?       // orderId, receipt id, admin note
+  createdAt  DateTime      @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+enum WalletTxnType {
+  TOPUP
+  PURCHASE
+  REFUND
+  REFERRAL_BONUS
+  ADMIN_ADJUST
+}
+
+// ============================================================
+//  COUPONS (growth lever — schema now, admin UI later)
+// ============================================================
+model Coupon {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  percentOff  Int?      // either percent...
+  amountOff   Decimal?  @db.Decimal(12, 2) // ...or fixed amount
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  orders Order[]
+}
+
+// ============================================================
+//  NOTIFICATIONS (in-app; Telegram delivery wired later)
+// ============================================================
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String?
+  data      Json?            // arbitrary payload (orderId, configId, etc.)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+enum NotificationType {
+  ORDER_APPROVED
+  ORDER_REJECTED
+  CONFIG_DELIVERED
+  CONFIG_EXPIRING
+  WALLET_TOPUP
+  SYSTEM
+}
+
+// ============================================================
+//  CHAT ENGINE
+// ============================================================
+model Conversation {
+  id        String   @id @default(cuid())
+  type      ConvType
+  title     String?  // support ticket subject / global room name
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt // bumps on new message → sidebar sort
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([type, updatedAt])
+}
+
+enum ConvType {
+  GLOBAL
+  DM
+  SUPPORT
+}
+
+model ConversationParticipant {
+  id                String       @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessageId String?      // read-receipt pointer
+  isMuted           Boolean      @default(false)
+  joinedAt          DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  type           MessageType  @default(TEXT)
+  content        String?
+  mediaUrl       String?      // image / sticker / gif URL
+  mediaWidth     Int?
+  mediaHeight    Int?
+  replyToId      String?
+  replyTo        Message?     @relation("Reply", fields: [replyToId], references: [id])
+  replies        Message[]    @relation("Reply")
+  isDeleted      Boolean      @default(false) // "delete for everyone" = soft delete
+  createdAt      DateTime     @default(now())
+  editedAt       DateTime?
+
+  @@index([conversationId, createdAt])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  STICKER
+  GIF
+  SYSTEM
+}

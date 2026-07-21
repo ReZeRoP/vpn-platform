@@ -1,0 +1,21 @@
+{
+  "name": "vpn-store-chat-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AMOLED RTL Persian VPN config store + Telegram-like real-time chat",
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @app/db generate",
+    "db:migrate": "pnpm --filter @app/db migrate",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  },
+  "packageManager": "pnpm@9.7.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
