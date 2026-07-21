@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var
 RUN corepack enable
 
 # Copy workspace manifests first for cached installs
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* tsconfig.base.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* .npmrc tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/

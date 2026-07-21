@@ -3,7 +3,7 @@ FROM node:20-slim AS build
 WORKDIR /app
 RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* tsconfig.base.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* .npmrc tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile || pnpm install
