@@ -84,8 +84,30 @@ fi
 
 info "Building application images"
 docker compose build
+
 info "Starting database and Redis"
 docker compose up -d postgres redis
+
+# Wait for Postgres to be ready, then verify the password works.
+# If the pgdata volume was initialized with a different password (e.g. from
+# a previous install with a different .env), reset it so the fresh password takes.
+info "Waiting for Postgres to be healthy"
+for i in $(seq 1 30); do
+  if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; then break; fi
+  sleep 2
+done
+
+if ! docker compose exec -T postgres psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-vpnstore}" -c '\q' >/dev/null 2>&1; then
+  warn "Postgres password mismatch — the existing volume was initialized with a different password."
+  warn "Resetting the database volume to apply the current credentials."
+  docker compose down -v --remove-orphans
+  docker compose up -d postgres redis
+  for i in $(seq 1 30); do
+    if docker compose exec -T postgres pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; then break; fi
+    sleep 2
+  done
+fi
+
 info "Applying database migrations"
 docker compose run --rm migrate
 info "Starting the application"
