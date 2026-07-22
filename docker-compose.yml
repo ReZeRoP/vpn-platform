@@ -45,7 +45,7 @@ services:
       - /bin/sh
       - -c
       - |
-        /app/packages/db/node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma
+        /app/node_modules/.bin/prisma migrate deploy --schema /app/packages/db/prisma/schema.prisma
 
   api:
     <<: *api-image
