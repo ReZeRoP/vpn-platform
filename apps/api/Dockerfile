@@ -8,13 +8,16 @@ RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* .npmrc tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY packages/db/package.json packages/db/
+COPY packages/db/tsconfig.json packages/db/
 COPY packages/shared/package.json packages/shared/
+COPY packages/shared/tsconfig.json packages/shared/
 RUN pnpm install --frozen-lockfile || pnpm install
 
 # Copy sources and build
 COPY packages ./packages
 COPY apps/api ./apps/api
 RUN pnpm --filter @app/db generate
+RUN pnpm --filter @app/shared build && pnpm --filter @app/db build
 RUN pnpm --filter @app/api build
 
 # ---- Runtime stage ----

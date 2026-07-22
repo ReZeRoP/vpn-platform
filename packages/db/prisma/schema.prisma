@@ -25,7 +25,8 @@ model User {
   lastSeenAt   DateTime?
   createdAt    DateTime @default(now())
 
-  // referral: who invited this user
+  // referral: this user's own shareable code + who invited them
+  referralCode String?  @unique
   referredById String?
   referredBy   User?    @relation("Referrals", fields: [referredById], references: [id])
   referrals    User[]   @relation("Referrals")
@@ -229,6 +230,12 @@ enum NotificationType {
 // ============================================================
 //  CHAT ENGINE
 // ============================================================
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model Conversation {
   id        String   @id @default(cuid())
   type      ConvType

@@ -2,37 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Self-hosted Vazirmatn (variable). Drop the woff2 into /public/fonts. */
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/Vazirmatn[wght].woff2') format('woff2-variations');
-  font-weight: 100 900;
-  font-display: swap;
-}
-
 @layer base {
   :root {
     color-scheme: dark;
+    --void: #000;
+    --text: #f4f5f7;
+    --muted: #8b909c;
+    --line: rgba(255, 255, 255, 0.09);
+    --accent: #4f9dff;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
   html,
   body {
-    background-color: #000000;
-    color: #f5f5f7;
+    height: 100%;
+    background: var(--void);
+    color: var(--text);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     font-family: 'Vazirmatn', system-ui, sans-serif;
+    min-width: 320px;
   }
 
-  /* Persian numerals feel native across the UI */
+  ::selection {
+    background: rgba(79, 157, 255, 0.25);
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
   .fa-nums {
-    font-variant-numeric: normal;
     font-feature-settings: 'ss01';
   }
 
-  /* Slim, dark scrollbars that suit AMOLED */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -47,28 +59,130 @@
 }
 
 @layer components {
-  /* Glassmorphism surface — thin hairline border + blur over pure black */
-  .glass {
+  /* ---------- shared button system ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    background: var(--text);
+    color: #000;
+    transition: opacity 0.2s, transform 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+  .btn:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--line);
+  }
+  .btn-outline:hover {
+    border-color: rgba(255, 255, 255, 0.25);
     background: rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    opacity: 1;
   }
 
-  .glass-elevated {
-    background: rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  .link {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.2s;
+  }
+  .link:hover {
+    color: var(--text);
+  }
+  .link .arrow {
+    transition: transform 0.2s;
+  }
+  .link:hover .arrow {
+    transform: translateX(-4px);
   }
 
-  /* Neon accent button */
-  .btn-neon {
-    @apply rounded-xl px-4 py-2 font-medium text-white transition;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    box-shadow: 0 0 24px -4px rgba(59, 130, 246, 0.45);
+  /* ---------- surfaces ---------- */
+  .card {
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 14px;
   }
-  .btn-neon:hover {
-    filter: brightness(1.1);
+
+  .field {
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    transition: border-color 0.2s;
+  }
+  .field:focus {
+    outline: none;
+    border-color: rgba(79, 157, 255, 0.6);
+  }
+  .field::placeholder {
+    color: var(--muted);
+  }
+  textarea.field { resize: vertical; }
+  select.field { appearance: none; }
+
+  .nav-link {
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--muted);
+    transition: color .2s, background .2s;
+  }
+  .nav-link:hover, .nav-active { color: var(--text); background: rgba(255,255,255,.05); }
+
+  .page-wrap { width: 100%; max-width: 1152px; margin-inline: auto; padding: 40px 24px 72px; }
+  .label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 12px; }
+
+  /* ---------- load fade ---------- */
+  .fade {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fade-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  }
+  .f2 { animation-delay: 0.1s; }
+  .f3 { animation-delay: 0.2s; }
+  .f4 { animation-delay: 0.3s; }
+  .f5 { animation-delay: 0.4s; }
+}
+
+@media (max-width: 640px) {
+  .page-wrap { padding: 28px 16px 48px; }
+  .btn { padding: 12px 22px; }
+}
+
+@keyframes fade-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }

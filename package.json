@@ -8,6 +8,7 @@
     "build": "pnpm -r build",
     "db:generate": "pnpm --filter @app/db generate",
     "db:migrate": "pnpm --filter @app/db migrate",
+    "db:migrate:deploy": "pnpm --filter @app/db migrate:deploy",
     "lint": "pnpm -r lint"
   },
   "devDependencies": {

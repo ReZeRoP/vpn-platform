@@ -1,80 +1,82 @@
 # Deployment Guide
 
-Two parts: **(A)** push this project to GitHub, **(B)** deploy it to a Linux server with one command.
+Target: **Ubuntu 24.04** server with 2 vCPU / 2GB RAM minimum.
 
----
-
-## A. Push to a new GitHub repo
-
-> **One-time cleanup first:** a partial `.git/` folder may exist in this project from the sandbox. Delete it before initializing, then start clean:
-> ```bash
-> rm -rf .git          # PowerShell: Remove-Item -Recurse -Force .git
-> git init
-> git add -A
-> git commit -m "Initial scaffold: monorepo, Prisma schema, AMOLED/RTL design, Docker deploy"
-> ```
-
-Then push it. From your machine:
-
-### Option 1 — GitHub CLI (easiest)
-```bash
-gh repo create vpn-platform --private --source=. --remote=origin --push
-```
-
-### Option 2 — plain git
-1. Create an empty repo on github.com (no README/gitignore — this repo already has them).
-2. Then:
-```bash
-git remote add origin https://github.com/<your-username>/<repo>.git
-git branch -M main
-git push -u origin main
-```
-
-> The `.gitignore` already excludes `node_modules/`, `.env`, build output, and uploads — no secrets get pushed.
-
----
-
-## B. One-command server install
-
-On a fresh **Ubuntu/Debian** server (2 vCPU / 2GB RAM is plenty to start):
+## One-command install
 
 ```bash
-git clone https://github.com/<your-username>/<repo>.git vpn-platform
+git clone https://github.com/ReZeRoP/vpn-platform.git
 cd vpn-platform
 sudo bash install.sh
 ```
 
 The installer will:
-1. Install Docker + Compose if missing.
-2. Generate a `.env` with strong random secrets (JWT + DB password) — asks only for your public URL.
-3. Build and launch the full stack: **Postgres, Redis, API (NestJS), Web (Next.js), Nginx**.
-4. Apply database migrations.
+1. Install Docker Engine + Compose plugin if missing.
+2. Generate a `.env` with strong random secrets (Postgres password, JWT secret).
+3. Ask for: public URL, admin username, admin password, optional Telegram bot token/chat ID.
+4. Build and launch the full stack: Postgres, Redis, API (NestJS), Web (Next.js), Nginx.
+5. Apply database migrations.
+6. Start the application.
 
-When it finishes, your site is live on port 80.
+When it finishes, the site is live on port 80. The admin account is created automatically from the credentials you provided.
 
-### Everyday commands
+## Everyday commands
+
 ```bash
-docker compose ps          # service status
-docker compose logs -f     # live logs
-docker compose restart api # restart one service
-docker compose down        # stop everything
-docker compose up -d        # start again
+docker compose ps            # service status
+docker compose logs -f api   # live API logs
+docker compose logs -f web   # live web logs
+docker compose restart api   # restart one service
+docker compose down          # stop everything
+docker compose up -d          # start again
 ```
 
----
+## Updating
 
-## C. Putting it behind Cloudflare (recommended)
+```bash
+git pull
+docker compose build
+docker compose up -d
+```
+
+Migrations run automatically via the `migrate` one-shot service before the API starts.
+
+## Backup
+
+```bash
+# Database
+docker compose exec postgres pg_dump -U postgres vpnstore > backup.sql
+
+# Restore
+docker compose exec -T postgres psql -U postgres vpnstore < backup.sql
+```
+
+Uploaded files (receipts, chat images) are in the `uploads` Docker volume. If using S3/R2, they're stored externally.
+
+## Behind Cloudflare (recommended)
+
 1. Point your domain's A record at the server IP.
 2. In Cloudflare: enable proxy (orange cloud), set SSL/TLS mode to **Full**.
-3. Nginx already forwards `X-Forwarded-Proto`/`X-Forwarded-For` and upgrades WebSocket for the chat, so Socket.IO works through the proxy.
-4. Set your `.env` `WEB_URL` to the `https://` domain and `docker compose up -d` to apply.
+3. Nginx forwards `X-Forwarded-Proto`/`X-Forwarded-For` and upgrades WebSocket for the chat.
+4. Set `WEB_URL` to your `https://` domain in `.env` and run `docker compose up -d`.
 
-> For TLS directly on the box instead of Cloudflare, add Certbot or Caddy in front — ask and I'll wire it in.
+## Media uploads (Cloudflare R2)
 
----
+Fill the `S3_*` values in `.env` to use Cloudflare R2 for receipt and chat image storage. If left empty, uploads are stored on local disk in the `uploads` Docker volume and served by the API.
 
-## D. Media uploads (receipts + chat images)
-Fill the `S3_*` values in `.env` with your Cloudflare R2 (or any S3-compatible) credentials, then restart the API. Until then, uploads are disabled but the rest of the app runs fine.
+## Telegram bot (optional)
 
-## E. Telegram notifications (optional, deferred)
-Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ADMIN_CHAT_ID` in `.env` when we build that module.
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ADMIN_CHAT_ID` in `.env` to receive instant Telegram notifications when a new card-to-card order is submitted. Create a bot via [@BotFather](https://t.me/BotFather), get your chat ID by messaging the bot and visiting `https://api.telegram.org/bot<TOKEN>/getUpdates`.
+
+## Payment card configuration
+
+After first login as admin, go to **Admin Panel → Settings** to configure your card number and cardholder name. These are stored in the database and displayed to users on the checkout page. No need to edit env vars or rebuild.
+
+## Changing NEXT_PUBLIC_* values
+
+`NEXT_PUBLIC_API_URL` is baked into the frontend at build time. If you change it in `.env`, you must rebuild:
+
+```bash
+docker compose build web
+docker compose up -d web
+```

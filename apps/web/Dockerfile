@@ -6,10 +6,12 @@ RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* .npmrc tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+COPY packages/shared/tsconfig.json packages/shared/
 RUN pnpm install --frozen-lockfile || pnpm install
 
 COPY packages ./packages
 COPY apps/web ./apps/web
+RUN pnpm --filter @app/shared build
 RUN pnpm --filter @app/web build
 
 # ---- Runtime stage (Next standalone output) ----

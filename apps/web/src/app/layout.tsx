@@ -1,15 +1,22 @@
 import type { Metadata } from 'next';
+import { AppShell } from '@/components/app-shell';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'فروشگاه کانفیگ',
-  description: 'خرید کانفیگ و گفتگوی لحظه‌ای',
+  title: { default: 'هالوکُن | اینترنت آزاد', template: '%s | هالوکُن' },
+  description: 'اینترنت آزاد برای همه — خرید کانفیگ با تحویل خودکار و چت لحظه‌ای',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fa" dir="rtl">
-      <body className="min-h-screen bg-void text-[#f5f5f7] antialiased">{children}</body>
+      <head>
+        <link
+          href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css"
+          rel="stylesheet"
+        />
+      </head>
+      <body><AppShell>{children}</AppShell></body>
     </html>
   );
 }
